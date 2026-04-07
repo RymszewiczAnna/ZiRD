@@ -1,0 +1,110 @@
+1.
+
+SELECT LAST_NAME, SALARY, 
+DENSE_RANK() OVER (ORDER BY SALARY DESC) AS RANKING_WG_PENSJI
+FROM EMPLOYEES;
+
+2.
+
+SELECT FIRST_NAME, LAST_NAME, SALARY,
+SUM(SALARY) OVER() AS CALKOWITA_SUMA_PENSJI
+FROM EMPLOYEES;
+
+3.
+
+CREATE TABLE SALES AS SELECT * FROM HR.SALES;
+CREATE TABLE PRODUCTS AS SELECT * FROM HR.PRODUCTS;
+
+4.
+
+SELECT E.LAST_NAME, P.PRODUCT_NAME,
+SUM(S.QUANTITY * S.PRICE) OVER (PARTITION BY E.EMPLOYEE_ID ORDER BY S.SALE_DATE, P.PRODUCT_ID) AS SKUMULOWANA_SPRZEDAZ,
+RANK() OVER (ORDER BY (S.QUANTITY * S.PRICE) DESC) AS RANKING_WARTOSCI_SPRZEDAZY
+FROM SALES S
+JOIN EMPLOYEES E ON S.EMPLOYEE_ID = E.EMPLOYEE_ID
+JOIN PRODUCTS P ON S.PRODUCT_ID = P.PRODUCT_ID;
+
+5.
+
+SELECT E.LAST_NAME, P.PRODUCT_NAME, S.PRICE AS OBECNA_CENA,
+COUNT(S.SALE_ID) OVER (PARTITION BY P.PRODUCT_ID, TRUNC(S.SALE_DATE))AS LICZBA_TRANSAKCJI,
+SUM(S.QUANTITY*S.PRICE) OVER (PARTITION BY P.PRODUCT_ID, TRUNC(S.SALE_DATE)) AS SUMA_ZA_PRODUKT,
+LAG(S.PRICE) OVER (PARTITION BY P.PRODUCT_ID ORDER BY S.SALE_DATE) AS POPRZEDNIA_CENA,
+LEAD(S.PRICE) OVER (PARTITION BY P.PRODUCT_ID ORDER BY S.SALE_DATE) AS KOLEJNA_CENA
+FROM SALES S
+JOIN EMPLOYEES E ON E.EMPLOYEE_ID = S.EMPLOYEE_ID
+JOIN PRODUCTS P ON S.PRODUCT_ID = P.PRODUCT_ID;
+
+6.
+
+SELECT P.PRODUCT_NAME, S.PRICE,
+SUM(S.QUANTITY * S.PRICE) OVER (PARTITION BY P.PRODUCT_ID, TRUNC(S.SALE_DATE, 'MM')) AS SUMA_MIESIAC,
+SUM(S.QUANTITY * S.PRICE) OVER (PARTITION BY P.PRODUCT_ID, TRUNC(S.SALE_DATE, 'MM') ORDER BY S.SALE_DATE) AS SUMA_ROSNACA
+FROM SALES S
+JOIN PRODUCTS P ON S.PRODUCT_ID = P.PRODUCT_ID;
+
+7.
+SELECT 
+    p.product_name, 
+    p.product_category, 
+    s22.price AS cena_2022, 
+    s23.price AS cena_2023, 
+    (s23.price - s22.price) AS roznica_cen
+FROM products p
+JOIN sales s22 ON p.product_id = s22.product_id AND EXTRACT(YEAR FROM s22.sale_date) = 2022
+JOIN sales s23 ON p.product_id = s23.product_id AND EXTRACT(YEAR FROM s23.sale_date) = 2023 
+    AND EXTRACT(MONTH FROM s22.sale_date) = EXTRACT(MONTH FROM s23.sale_date)
+    AND EXTRACT(DAY FROM s22.sale_date) = EXTRACT(DAY FROM s23.sale_date);
+
+8.
+SELECT 
+    p.product_category, 
+    p.product_name, 
+    s.price,
+    MIN(price) OVER (PARTITION BY product_category) AS min_cena_w_kategorii,
+    MAX(price) OVER (PARTITION BY product_category) AS max_cena_w_kategorii,
+    (MAX(price) OVER (PARTITION BY product_category) - MIN(price) OVER (PARTITION BY product_category)) AS roznica_max_min
+FROM products p JOIN sales s ON p.product_id = s.product_id;
+
+9.
+SELECT 
+    p.product_name, 
+    s.sale_date,
+    s.price,
+    AVG(s.price) OVER (
+        PARTITION BY p.product_id 
+        ORDER BY s.sale_date 
+        ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
+    ) AS srednia_kroczaca
+FROM products p
+JOIN sales s ON p.product_id = s.product_id;
+
+10.
+SELECT 
+    p.product_name, 
+    p.product_category, 
+    s.price,
+    RANK() OVER (PARTITION BY p.product_category ORDER BY s.price DESC) AS ranking,
+    ROW_NUMBER() OVER (PARTITION BY p.product_category ORDER BY s.price DESC) AS numer_wiersza,
+    DENSE_RANK() OVER (PARTITION BY p.product_category ORDER BY s.price DESC) AS ranking_gesty
+FROM products p JOIN sales s ON p.product_id=s.product_id;
+
+11.
+SELECT 
+    e.last_name, 
+    p.product_name, 
+    s.sale_date,
+    SUM(s.price * s.quantity) OVER (PARTITION BY e.employee_id ORDER BY s.sale_date) AS wartosc_rosnaca_pracownika,
+    RANK() OVER (ORDER BY (s.price * s.quantity) DESC) AS ranking_globalny_wartosci
+FROM sales s
+JOIN employees e ON s.employee_id = e.employee_id
+JOIN products p ON s.product_id = p.product_id;
+
+12.
+SELECT DISTINCT 
+    e.first_name, 
+    e.last_name, 
+    e.job_id
+FROM employees e
+JOIN sales s ON e.employee_id = s.employee_id;
+
