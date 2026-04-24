@@ -1,0 +1,201 @@
+1 i 2
+
+DECLARE
+    v_numer_max departments.department_id%TYPE;
+    v_nazwa_dept departments.department_name%TYPE := 'EDUCATION';
+BEGIN
+   SELECT NVL(MAX(department_id),0) INTO v_numer_max FROM departments;
+   INSERT INTO departments (department_id, department_name)
+   VALUES (v_numer_max + 10, v_nazwa_dept);
+   
+   UPDATE departments
+   SET location_id = 3000
+   WHERE department_id = v_numer_max + 10;
+   
+   
+END;
+
+3.
+CREATE TABLE nowa (
+    wartosc VARCHAR2(20)
+);
+
+BEGIN 
+    FOR i IN 1..10 LOOP
+        IF i NOT IN (4,6) THEN
+            INSERT INTO nowa (wartosc) VALUES (TO_CHAR(i));
+        END IF;
+    END LOOP;
+    COMMIT;
+END;
+
+4.
+DECLARE 
+     v_kraj countries%ROWTYPE;
+BEGIN
+    SELECT * INTO v_kraj
+    FROM countries
+    WHERE country_id = 'CA';
+    
+    DBMS_OUTPUT.PUT_LINE('Kraj: ' || v_kraj.country_name || ', ID Regionu: ' || v_kraj.region_id);
+END;   
+
+5.
+ DECLARE 
+    CURSOR c_pracownicy IS 
+        SELECT salary, last_name
+        FROM employees
+        WHERE department_id = 50;
+BEGIN
+    FOR v_emp IN c_pracownicy LOOP
+        IF v_emp.salary>3100 THEN
+            DBMS_OUTPUT.PUT_LINE(v_emp.last_name || ' - nie dawać podwyżki');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE(v_emp.last_name || ' - dać podwyżkę');
+        END IF;
+    END LOOP;
+END;
+
+6.
+DECLARE 
+    CURSOR c_wid(p_min_sal NUMBER, p_max_sal NUMBER, p_imie_czesc VARCHAR2) IS
+        SELECT salary, first_name, last_name
+        FROM employees
+        WHERE salary BETWEEN p_min_sal AND p_max_sal
+            AND UPPER(first_name) LIKE '%' || UPPER(p_imie_czesc) || '%";
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('--- a. Widełki 1000-5000, litera "A" ---');
+    FOR v_emp IN c_wid(1000, 5000, 'a') LOOP
+        DBMS_OUTPUT.PUT_LINE(v_emp.first_name || ' ' || v_emp.last_name || ' - ' || v_emp.salary);
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('--- b. Widełki 5000-20000, litera "U" ---');
+    FOR v_emp IN c_wid(5000, 20000, 'u') LOOP
+        DBMS_OUTPUT.PUT_LINE(v_emp.first_name || ' ' || v_emp.last_name || ' - ' || v_emp.salary);
+    END LOOP;
+    
+END;
+
+9.
+a.
+CREATE OR REPLACE PROCEDURE add_job (
+    p_job_id IN jobs.job_id%TYPE,
+    p_job_title IN jobs.job_title%TYPE
+) IS
+BEGIN 
+    INSERT INTO jobs (job_id, job_title) VALUES (p_job_id, p_job_title);
+    DBMS_OUTPUT.PUT_LINE('Dodano nowe stanowisko: ' || p_job_title);
+EXCEPTION
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Wystąpił błąd podczas dodawania: ' || SQLERRM);
+END add_job;
+/
+EXECUTE add_job('IT_TESTER','Software Tester');
+
+b.
+CREATE OR REPLACE PROCEDURE modify_job_title (
+    p_job_id IN jobs.job_id%TYPE,
+    p_new_title IN jobs.job_title%TYPE
+) IS
+    e_no_jobs_updated EXCEPTION;
+BEGIN
+    UPDATE jobs
+    SET job_title = p_new_title
+    WHERE job_id = p_job_id;
+    
+    IF SQL%ROWCOUNT = 0 THEN
+        RAISE e_no_jobs_updated;
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('Zaktualizowano nazwe stanowiska dla ID: ' || p_job_id);
+EXCEPTION
+    WHEN e_no_jobs_updated THEN
+        DBMS_OUTPUT.PUT_LINE('Bład: Nie zaktualizowano żadnego rekordu.');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Inny blad: ' || SQLERRM);
+END modify_job_title;
+/
+EXECUTE modify_job_title('IT_TESTER', 'Senior Software Tester');
+EXECUTE modify_job_title('BRAK_ID', 'Dyrektor');
+
+c.
+CREATE OR REPLACE PROCEDURE delete_job (
+    p_job_id IN jobs.job_id%TYPE
+) IS 
+    e_no_jobs_deleted EXCEPTION;
+BEGIN
+    DELETE FROM jobs WHERE job_id = p_job_id;
+    IF SQL%ROWCOUNT = 0 THEN
+        RAISE e_no_jobs_deleted;
+    END IF;
+    
+    DBMS_OUTPUT.PUT_LINE('usunięto stanowisko: ' || p_job_id);
+EXCEPTION
+    WHEN e_no_jobs_deleted THEN
+        DBMS_OUTPUT.PUT_LINE('Blad nie usunieto zadnego rekordu');
+    WHEN OTHERS THEN 
+        DBMS_OUTPUT.PUT_LINE('Inny blad: ' || SQLERRM);
+END  delete_job;
+/
+EXECUTE delete_job('IT_TESTER');
+
+
+d.
+CREATE OR REPLACE PROCEDURE get_emp_info (
+    p_emp_id IN employees.employee_id%TYPE,
+    p_salary OUT employees.salary%TYPE,
+    p_last_name OUT employees.last_name%TYPE
+) IS 
+BEGIN
+    SELECT salary, last_name
+    INTO p_salary, p_last_name
+    FROM employees
+    WHERE employee_id = p_emp_id;
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        DBMS_OUTPUT.PUT_LINE('Brak pracownika o podanym ID.');
+END get_emp_info;
+/
+DECLARE
+    v_zarobki employees.salary%TYPE;
+    v_nazwisko employees.last_name%TYPE;
+BEGIN
+    get_emp_info(100, v_zarobki, v_nazwisko);
+    DBMS_OUTPUT.PUT_LINE('Pracownik: ' || v_nazwisko || ' zarabia ' || v_zarobki);
+END;
+/
+
+e.
+CREATE OR REPLACE PROCEDURE add_employee (
+    p_first_name IN employees.first_name%TYPE DEFAULT 'Jan',
+    p_last_name  IN employees.last_name%TYPE DEFAULT 'Nowak',
+    p_email      IN employees.email%TYPE DEFAULT 'JNOWAK',
+    p_hire_date  IN employees.hire_date%TYPE DEFAULT SYSDATE,
+    p_job_id     IN employees.job_id%TYPE DEFAULT 'IT_PROG',
+    p_salary     IN employees.salary%TYPE DEFAULT 5000
+) IS
+    e_zbyt_wysoka_pensja EXCEPTION;
+    v_new_id employees.employee_id%TYPE; 
+BEGIN
+    IF p_salary > 20000 THEN
+        RAISE e_zbyt_wysoka_pensja;
+    END IF;
+
+    SELECT NVL(MAX(employee_id), 0) + 1 INTO v_new_id FROM employees;
+
+    INSERT INTO employees (employee_id, first_name, last_name, email, hire_date, job_id, salary)
+    VALUES (v_new_id, p_first_name, p_last_name, p_email, p_hire_date, p_job_id, p_salary);
+
+    DBMS_OUTPUT.PUT_LINE('Pomyślnie dodano nowego pracownika. Nadane ID: ' || v_new_id);
+    
+EXCEPTION
+    WHEN e_zbyt_wysoka_pensja THEN
+        DBMS_OUTPUT.PUT_LINE('BŁĄD: Dodanie odrzucone. Pensja ' || p_salary || ' przekracza 20000!');
+    WHEN OTHERS THEN
+        DBMS_OUTPUT.PUT_LINE('Inny błąd przy dodawaniu: ' || SQLERRM);
+END add_employee;
+/
+
+
+EXECUTE add_employee(); 
+EXECUTE add_employee(p_salary => 25000); 
